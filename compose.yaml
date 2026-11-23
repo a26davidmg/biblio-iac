@@ -1,0 +1,65 @@
+# ============================================================
+# Infraestrutura das bibliotecas de Ribeira Alta
+# Completa as partes marcadas con COMPLETA.
+# ============================================================
+
+name: biblio
+
+services:
+
+  # ----------------------------------------------------------
+  # Base de datos
+  # ----------------------------------------------------------
+  bd:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${BD_NOME}
+      MARIADB_USER: ${BD_USUARIO}
+      MARIADB_PASSWORD_FILE: /run/secrets/bd_password
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/bd_root_password
+    # COMPLETA: os dous segredos (bd_password e bd_root_password)
+    # COMPLETA: o volume con nome "datos" en /var/lib/mysql
+    #           e o cartafol ./initdb en /docker-entrypoint-initdb.d (só lectura)
+    # COMPLETA: só na rede "back"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------
+  # Web PHP
+  # ----------------------------------------------------------
+  web:
+    # COMPLETA: construír a imaxe co Dockerfile deste cartafol,
+    #           pasándolle o argumento VERSION co valor de ${VERSION}
+    # COMPLETA: nome da imaxe resultante: biblio-web:${VERSION}
+    restart: unless-stopped
+    environment:
+      DB_HOST: bd
+      # COMPLETA: DB_NAME e DB_USER (cos valores de .env)
+      # COMPLETA: DB_PASSWORD_FILE apuntando ao segredo bd_password
+      CONTORNO: ${CONTORNO:-producion}
+    # COMPLETA: o segredo bd_password
+    # COMPLETA: o volume con nome "visitas" en /var/www/datos
+    # COMPLETA: publicar o porto ${PORTO_WEB} do equipo no 80 do contedor
+    # COMPLETA: nas redes "front" e "back"
+    # COMPLETA: arrancar só cando "bd" estea san (service_healthy)
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://localhost/saude.php') === false ? 1 : 0);"]
+      start_period: 10s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # COMPLETA (parte 5): servizo "phpmyadmin" no perfil "ferramentas"
+
+  # COMPLETA (parte 5): servizo "copia" no perfil "operacions"
+
+# COMPLETA: redes "front" e "back" (esta última interna)
+
+# COMPLETA: volumes "datos" e "visitas"
+
+# COMPLETA: segredos bd_password e bd_root_password, lidos dos ficheiros de ./segredos/

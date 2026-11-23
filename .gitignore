@@ -1,0 +1,9 @@
+segredos/*
+copias/*
+
+!*/.gitkeep
+
+.DS_Store
+Thumbs.db
+
+.vscode/
