@@ -18,10 +18,14 @@ services:
       MARIADB_USER: ${BD_USUARIO}
       MARIADB_PASSWORD_FILE: /run/secrets/bd_password
       MARIADB_ROOT_PASSWORD_FILE: /run/secrets/bd_root_password
-    # COMPLETA: os dous segredos (bd_password e bd_root_password)
-    # COMPLETA: o volume con nome "datos" en /var/lib/mysql
-    #           e o cartafol ./initdb en /docker-entrypoint-initdb.d (só lectura)
-    # COMPLETA: só na rede "back"
+    secrets:
+      - bd_password
+      - bd_root_password
+    volumes:
+      - datos:/var/lib/mysql:rw
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    networks:
+      - back
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       start_period: 30s
@@ -33,20 +37,30 @@ services:
   # Web PHP
   # ----------------------------------------------------------
   web:
-    # COMPLETA: construír a imaxe co Dockerfile deste cartafol,
-    #           pasándolle o argumento VERSION co valor de ${VERSION}
-    # COMPLETA: nome da imaxe resultante: biblio-web:${VERSION}
+    build:
+      context: .
+      args:
+        - VERSION=${VERSION}
+    image: biblio-web:${VERSION}
     restart: unless-stopped
     environment:
       DB_HOST: bd
-      # COMPLETA: DB_NAME e DB_USER (cos valores de .env)
-      # COMPLETA: DB_PASSWORD_FILE apuntando ao segredo bd_password
+      DB_NAME: ${BD_NOME}
+      DB_USER: ${BD_USUARIO}
+      DB_PASSWORD_FILE:  /run/secrets/bd_password
       CONTORNO: ${CONTORNO:-producion}
-    # COMPLETA: o segredo bd_password
-    # COMPLETA: o volume con nome "visitas" en /var/www/datos
-    # COMPLETA: publicar o porto ${PORTO_WEB} do equipo no 80 do contedor
-    # COMPLETA: nas redes "front" e "back"
-    # COMPLETA: arrancar só cando "bd" estea san (service_healthy)
+    secrets:
+      - bd_password
+    volumes:
+      - visitas:/var/www/datos
+    ports:
+      - "${PORTO_WEB:-80}:80"
+    networks:
+      - front
+      - back
+    depends_on:
+      bd: 
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "php", "-r", "exit(@file_get_contents('http://localhost/saude.php') === false ? 1 : 0);"]
       start_period: 10s
@@ -58,8 +72,17 @@ services:
 
   # COMPLETA (parte 5): servizo "copia" no perfil "operacions"
 
-# COMPLETA: redes "front" e "back" (esta última interna)
+networks:
+  front: {}
+  back:
+    internal: true
 
-# COMPLETA: volumes "datos" e "visitas"
+volumes:
+  datos:
+  visitas:
 
-# COMPLETA: segredos bd_password e bd_root_password, lidos dos ficheiros de ./segredos/
+secrets:
+  bd_password:
+    file: ./segredos/bd_password.txt
+  bd_root_password:
+    file: ./segredos/bd_root_password.txt
