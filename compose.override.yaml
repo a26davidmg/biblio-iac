@@ -1,0 +1,6 @@
+services:
+  web:
+    environment:
+      CONTORNO: desenvolvemento
+    volumes:
+      - ./src/:/var/www/html:ro
