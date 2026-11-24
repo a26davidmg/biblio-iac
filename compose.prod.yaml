@@ -15,8 +15,6 @@ services:
           memory: 256M
     networks: !override
       - front
-    extra_hosts:
-      - host.docker.internal:host-gateway
 
   phpmyadmin:
     environment:
