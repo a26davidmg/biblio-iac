@@ -1,0 +1,72 @@
+name: Validar a infraestrutura
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+
+    env:
+      # A web chega ao servidor de BD de probas a través do anfitrión
+      BD_HOST_PROD: host.docker.internal
+
+    # Servidor de base de datos de PROBAS que fai o papel do servidor real.
+    # Corre á parte do proxecto Compose, coma o servidor de produción.
+    # Os contrasinais son só para esta proba e desaparecen ao rematar.
+    services:
+      servidor-bd:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root-so-para-probas
+          MARIADB_DATABASE: biblioteca
+          MARIADB_USER: biblio
+          MARIADB_PASSWORD: biblio-so-para-probas
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Descargar o repositorio
+        uses: actions/checkout@v5
+
+      - name: Crear segredos de proba
+        run: |
+          openssl rand -base64 24 > segredos/bd_password.txt
+          openssl rand -base64 24 > segredos/bd_root_password.txt
+          echo "biblio-so-para-probas" > segredos/bd_password_prod.txt
+          chmod 644 segredos/*.txt
+
+      - name: Cargar o catálogo no servidor de base de datos
+        run: |
+          docker run --rm -i --network host mariadb:11.4 \
+            mariadb -h 127.0.0.1 -u biblio -pbiblio-so-para-probas biblioteca \
+            < initdb/01-catalogo.sql
+
+      - name: Validar a sintaxe (desenvolvemento e produción)
+        run: |
+          docker compose config --quiet
+          docker compose -f compose.yaml -f compose.prod.yaml config --quiet
+
+      - name: Aprovisionar a infraestrutura de produción
+        run: docker compose -f compose.yaml -f compose.prod.yaml up -d --build --wait
+
+      - name: Probas de fume
+        run: |
+          curl --fail --silent --show-error http://localhost:8080/saude.php
+          curl --fail --silent --show-error http://localhost:8080/ | grep "Catálogo das bibliotecas"
+
+      - name: Amosar os rexistros se algo falla
+        if: failure()
+        run: docker compose -f compose.yaml -f compose.prod.yaml logs
+
+      - name: Retirar a infraestrutura
+        if: always()
+        run: docker compose -f compose.yaml -f compose.prod.yaml down -v
