@@ -18,6 +18,24 @@ services:
     extra_hosts:
       - host.docker.internal:host-gateway
 
+  phpmyadmin:
+    environment:
+      PMA_HOST: ${BD_HOST_PROD:?error}
+    networks: !override
+      - front
+    depends_on: !reset []
+    extra_hosts:
+      - host.docker.internal:host-gateway
+  
+  copia:
+    environment:
+      BD_HOST: ${BD_HOST_PROD:?error}
+    networks: !override
+      - front
+    depends_on: !reset []
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
 secrets:
   bd_password:
     file: ./segredos/bd_password_prod.txt

@@ -68,9 +68,46 @@ services:
       timeout: 5s
       retries: 3
 
-  # COMPLETA (parte 5): servizo "phpmyadmin" no perfil "ferramentas"
-
-  # COMPLETA (parte 5): servizo "copia" no perfil "operacions"
+  phpmyadmin:
+    image: phpmyadmin:5.2.2
+    restart: unless-stopped
+    profiles:
+      - ferramentas
+    environment:
+      PMA_HOST: bd
+    ports:
+     - 127.0.0.1:8081:80
+    networks:
+      - front
+      - back
+    depends_on:
+      bd:
+        condition: service_healthy
+  
+  copia:
+    image: mariadb:11.4
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        mariadb-dump -h "$$BD_HOST" -u "$$BD_USUARIO" --password="$$(cat /run/secrets/bd_password)"
+        --no-tablespaces "$$BD_NOME" > /copias/$$BD_NOME-$$(date +%Y%m%d-%H%M%S).sql
+        && echo "Copia gardada en copias/" && ls -l /copias
+    profiles:
+      - operacions
+    environment:
+      BD_HOST: bd
+      BD_NOME: ${BD_NOME}
+      BD_USUARIO: ${BD_USUARIO}
+    secrets:
+      - bd_password
+    networks:
+      - back
+    volumes:
+      - ./copias/:/copias
+    depends_on:
+      bd:
+        condition: service_healthy
 
 networks:
   front: {}
